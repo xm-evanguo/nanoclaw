@@ -1,4 +1,3 @@
-import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -76,19 +75,15 @@ export class WhatsAppChannel implements Channel {
       },
       printQRInTerminal: false,
       logger,
-      browser: Browsers.macOS('Chrome'),
+      browser: Browsers.ubuntu('Chrome'),
     });
 
     this.sock.ev.on('connection.update', (update) => {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        const msg =
-          'WhatsApp authentication required. Run /setup in Claude Code.';
+        const msg = 'WhatsApp authentication required. Run /setup to continue.';
         logger.error(msg);
-        exec(
-          `osascript -e 'display notification "${msg}" with title "NanoClaw" sound name "Basso"'`,
-        );
         setTimeout(() => process.exit(1), 1000);
       }
 

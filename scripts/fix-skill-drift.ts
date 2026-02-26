@@ -7,7 +7,7 @@
  *   2. Retrieve the source file at that commit (old base)
  *   3. git merge-file <modify/file> <old_base> <current_main>
  *      - Clean merge → modify/ file is auto-updated
- *      - Conflicts   → conflict markers left in place for human/Claude review
+ *      - Conflicts   → conflict markers left in place for human/Codex review
  *
  * The calling workflow should commit the resulting changes and create a PR.
  *
@@ -42,7 +42,19 @@ function readManifest(skillDir: string): SkillManifest {
 }
 
 function fixSkill(skillName: string, projectRoot: string): FixResult[] {
-  const skillDir = path.join(projectRoot, '.claude', 'skills', skillName);
+  const codexDir = path.join(projectRoot, '.codex', 'skills', skillName);
+  const legacyDir = path.join(projectRoot, '.claude', 'skills', skillName);
+  const skillDir = fs.existsSync(codexDir) ? codexDir : legacyDir;
+  if (!fs.existsSync(skillDir)) {
+    return [
+      {
+        skill: skillName,
+        file: '',
+        status: 'error',
+        reason: 'skill package not found in .codex/skills or legacy .claude/skills',
+      },
+    ];
+  }
   const manifest = readManifest(skillDir);
   const results: FixResult[] = [];
 

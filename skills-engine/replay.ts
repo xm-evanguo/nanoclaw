@@ -29,27 +29,33 @@ export interface ReplayResult {
 }
 
 /**
- * Scan .claude/skills/ for a directory whose manifest.yaml has skill: <skillName>.
+ * Scan .codex/skills/ (preferred) and legacy .claude/skills/ for a directory
+ * whose manifest.yaml has skill: <skillName>.
  */
 export function findSkillDir(
   skillName: string,
   projectRoot?: string,
 ): string | null {
   const root = projectRoot ?? process.cwd();
-  const skillsRoot = path.join(root, '.claude', 'skills');
-  if (!fs.existsSync(skillsRoot)) return null;
+  const skillsRoots = [
+    path.join(root, '.codex', 'skills'),
+    path.join(root, '.claude', 'skills'),
+  ].filter((p) => fs.existsSync(p));
+  if (skillsRoots.length === 0) return null;
 
-  for (const entry of fs.readdirSync(skillsRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const dir = path.join(skillsRoot, entry.name);
-    const manifestPath = path.join(dir, 'manifest.yaml');
-    if (!fs.existsSync(manifestPath)) continue;
+  for (const skillsRoot of skillsRoots) {
+    for (const entry of fs.readdirSync(skillsRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const dir = path.join(skillsRoot, entry.name);
+      const manifestPath = path.join(dir, 'manifest.yaml');
+      if (!fs.existsSync(manifestPath)) continue;
 
-    try {
-      const manifest = readManifest(dir);
-      if (manifest.skill === skillName) return dir;
-    } catch {
-      // Skip invalid manifests
+      try {
+        const manifest = readManifest(dir);
+        if (manifest.skill === skillName) return dir;
+      } catch {
+        // Skip invalid manifests
+      }
     }
   }
 

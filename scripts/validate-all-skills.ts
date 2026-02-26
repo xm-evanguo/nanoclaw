@@ -98,12 +98,15 @@ function truncate(s: string, max = 300): string {
 
 async function main(): Promise<void> {
   const projectRoot = process.cwd();
-  const skillsDir = path.join(projectRoot, '.claude', 'skills');
+  const codexSkillsDir = path.join(projectRoot, '.codex', 'skills');
+  const legacySkillsDir = path.join(projectRoot, '.claude', 'skills');
+  const codexSkills = discoverSkills(codexSkillsDir);
+  const legacySkills = discoverSkills(legacySkillsDir);
 
   // Allow filtering to specific skills via CLI args
   const filterSkills = process.argv.slice(2);
 
-  let skills = discoverSkills(skillsDir);
+  let skills = codexSkills.length > 0 ? codexSkills : legacySkills;
   if (filterSkills.length > 0) {
     skills = skills.filter((s) => filterSkills.includes(s.name));
   }

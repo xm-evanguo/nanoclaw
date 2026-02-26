@@ -27,6 +27,15 @@ vi.mock('./logger.js', () => ({
   },
 }));
 
+// Mock env reader (secrets passed to container stdin)
+vi.mock('./env.js', () => ({
+  readEnvFile: vi.fn(() => ({
+    CODEX_API_KEY: 'test-codex-key',
+    CODEX_MODEL: 'gpt-5-codex',
+    OPENAI_MODEL: 'gpt-4o-mini',
+  })),
+}));
+
 // Mock fs
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs');
@@ -86,6 +95,7 @@ vi.mock('child_process', async () => {
 });
 
 import { runContainerAgent, ContainerOutput } from './container-runner.js';
+import { readEnvFile } from './env.js';
 import type { RegisteredGroup } from './types.js';
 
 const testGroup: RegisteredGroup = {
@@ -205,5 +215,36 @@ describe('container-runner timeout behavior', () => {
     const result = await resultPromise;
     expect(result.status).toBe('success');
     expect(result.newSessionId).toBe('session-456');
+  });
+
+  it('passes CODEX_MODEL through container input secrets', async () => {
+    let stdinPayload = '';
+    fakeProc.stdin.on('data', (chunk) => {
+      stdinPayload += chunk.toString();
+    });
+
+    const resultPromise = runContainerAgent(testGroup, testInput, () => {});
+    emitOutputMarker(fakeProc, {
+      status: 'success',
+      result: 'ok',
+      newSessionId: 'session-model',
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    fakeProc.emit('close', 0);
+    await vi.advanceTimersByTimeAsync(10);
+
+    const result = await resultPromise;
+    expect(result.status).toBe('success');
+    expect(readEnvFile).toHaveBeenCalledWith([
+      'CODEX_API_KEY',
+      'CODEX_MODEL',
+      'OPENAI_API_KEY',
+      'OPENAI_BASE_URL',
+      'OPENAI_MODEL',
+      'OPENAI_ORG_ID',
+    ]);
+
+    const parsedInput = JSON.parse(stdinPayload);
+    expect(parsedInput.secrets.CODEX_MODEL).toBe('gpt-5-codex');
   });
 });

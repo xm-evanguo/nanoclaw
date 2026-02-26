@@ -18,7 +18,6 @@ detect_platform() {
   local uname_s
   uname_s=$(uname -s)
   case "$uname_s" in
-    Darwin*) PLATFORM="macos" ;;
     Linux*)  PLATFORM="linux" ;;
     *)       PLATFORM="unknown" ;;
   esac
@@ -103,11 +102,7 @@ install_deps() {
 check_build_tools() {
   HAS_BUILD_TOOLS="false"
 
-  if [ "$PLATFORM" = "macos" ]; then
-    if xcode-select -p >/dev/null 2>&1; then
-      HAS_BUILD_TOOLS="true"
-    fi
-  elif [ "$PLATFORM" = "linux" ]; then
+  if [ "$PLATFORM" = "linux" ]; then
     if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
       HAS_BUILD_TOOLS="true"
     fi
@@ -127,7 +122,9 @@ check_build_tools
 
 # Emit status block
 STATUS="success"
-if [ "$NODE_OK" = "false" ]; then
+if [ "$PLATFORM" != "linux" ]; then
+  STATUS="unsupported_platform"
+elif [ "$NODE_OK" = "false" ]; then
   STATUS="node_missing"
 elif [ "$DEPS_OK" = "false" ]; then
   STATUS="deps_failed"
@@ -155,6 +152,9 @@ log "=== Bootstrap completed: $STATUS ==="
 
 if [ "$NODE_OK" = "false" ]; then
   exit 2
+fi
+if [ "$PLATFORM" != "linux" ]; then
+  exit 3
 fi
 if [ "$DEPS_OK" = "false" ] || [ "$NATIVE_OK" = "false" ]; then
   exit 1

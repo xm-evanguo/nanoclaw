@@ -8,7 +8,7 @@ describe('fetch-upstream.sh', () => {
   let projectDir: string;
   let upstreamBareDir: string;
   const scriptPath = path.resolve(
-    '.claude/skills/update/scripts/fetch-upstream.sh',
+    '.codex/skills/update/scripts/fetch-upstream.sh',
   );
 
   beforeEach(() => {
@@ -79,7 +79,7 @@ describe('fetch-upstream.sh', () => {
     // Copy the script into the project so it can find PROJECT_ROOT
     const skillScriptsDir = path.join(
       projectDir,
-      '.claude/skills/update/scripts',
+      '.codex/skills/update/scripts',
     );
     fs.mkdirSync(skillScriptsDir, { recursive: true });
     fs.copyFileSync(
@@ -102,7 +102,7 @@ describe('fetch-upstream.sh', () => {
     try {
       const stdout = execFileSync(
         'bash',
-        ['.claude/skills/update/scripts/fetch-upstream.sh'],
+        ['.codex/skills/update/scripts/fetch-upstream.sh'],
         {
           cwd: projectDir,
           encoding: 'utf-8',

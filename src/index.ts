@@ -41,6 +41,7 @@ import { findChannel, formatMessages, formatOutbound } from './router.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
+import { runCodexMigration } from './migrations.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -448,6 +449,7 @@ function ensureContainerSystemRunning(): void {
 async function main(): Promise<void> {
   ensureContainerSystemRunning();
   initDatabase();
+  runCodexMigration();
   logger.info('Database initialized');
   loadState();
 

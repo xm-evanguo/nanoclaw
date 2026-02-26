@@ -1,16 +1,15 @@
 /**
- * Cross-platform detection utilities for NanoClaw setup.
+ * Linux-focused detection utilities for NanoClaw setup.
  */
 import { execSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 
-export type Platform = 'macos' | 'linux' | 'unknown';
-export type ServiceManager = 'launchd' | 'systemd' | 'none';
+export type Platform = 'linux' | 'unknown';
+export type ServiceManager = 'systemd' | 'none';
 
 export function getPlatform(): Platform {
   const platform = os.platform();
-  if (platform === 'darwin') return 'macos';
   if (platform === 'linux') return 'linux';
   return 'unknown';
 }
@@ -31,11 +30,7 @@ export function isRoot(): boolean {
 
 export function isHeadless(): boolean {
   // No display server available
-  if (getPlatform() === 'linux') {
-    return !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
-  }
-  // macOS is never headless in practice (even SSH sessions can open URLs)
-  return false;
+  return !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
 }
 
 export function hasSystemd(): boolean {
@@ -55,13 +50,7 @@ export function hasSystemd(): boolean {
  */
 export function openBrowser(url: string): boolean {
   try {
-    const platform = getPlatform();
-    if (platform === 'macos') {
-      execSync(`open ${JSON.stringify(url)}`, { stdio: 'ignore' });
-      return true;
-    }
-    if (platform === 'linux') {
-      // Try xdg-open first, then wslview for WSL
+    if (getPlatform() === 'linux') {
       if (commandExists('xdg-open')) {
         execSync(`xdg-open ${JSON.stringify(url)}`, { stdio: 'ignore' });
         return true;
@@ -89,12 +78,8 @@ export function openBrowser(url: string): boolean {
 }
 
 export function getServiceManager(): ServiceManager {
-  const platform = getPlatform();
-  if (platform === 'macos') return 'launchd';
-  if (platform === 'linux') {
-    if (hasSystemd()) return 'systemd';
-    return 'none';
-  }
+  if (getPlatform() !== 'linux') return 'none';
+  if (hasSystemd()) return 'systemd';
   return 'none';
 }
 

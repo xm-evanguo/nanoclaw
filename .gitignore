@@ -9,14 +9,14 @@ store/
 data/
 logs/
 
-# Groups - only track base structure and specific CLAUDE.md files
+# Groups - only track base structure and AGENTS.md files
 groups/*
 !groups/main/
 !groups/global/
 groups/main/*
 groups/global/*
-!groups/main/CLAUDE.md
-!groups/global/CLAUDE.md
+!groups/main/AGENTS.md
+!groups/global/AGENTS.md
 
 # Secrets
 *.keys.json
@@ -31,5 +31,10 @@ groups/global/*
 
 # Skills system (local per-installation state)
 .nanoclaw/
+
+# Codex local state (track bundled skills only)
+.codex/*
+!.codex/skills/
+!.codex/skills/**
 
 agents-sdk-docs

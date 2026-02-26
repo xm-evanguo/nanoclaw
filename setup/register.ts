@@ -124,7 +124,7 @@ export async function run(args: string[]): Promise<void> {
     recursive: true,
   });
 
-  // Update assistant name in CLAUDE.md files if different from default
+  // Update assistant name in instruction files if different from default
   let nameUpdated = false;
   if (parsed.assistantName !== 'Andy') {
     logger.info(
@@ -132,22 +132,23 @@ export async function run(args: string[]): Promise<void> {
       'Updating assistant name',
     );
 
-    const mdFiles = [
+    const instructionFiles = [
+      path.join(projectRoot, 'groups', 'global', 'AGENTS.md'),
+      path.join(projectRoot, 'groups', 'main', 'AGENTS.md'),
       path.join(projectRoot, 'groups', 'global', 'CLAUDE.md'),
       path.join(projectRoot, 'groups', 'main', 'CLAUDE.md'),
     ];
 
-    for (const mdFile of mdFiles) {
-      if (fs.existsSync(mdFile)) {
-        let content = fs.readFileSync(mdFile, 'utf-8');
-        content = content.replace(/^# Andy$/m, `# ${parsed.assistantName}`);
-        content = content.replace(
-          /You are Andy/g,
-          `You are ${parsed.assistantName}`,
-        );
-        fs.writeFileSync(mdFile, content);
-        logger.info({ file: mdFile }, 'Updated CLAUDE.md');
-      }
+    for (const instructionFile of instructionFiles) {
+      if (!fs.existsSync(instructionFile)) continue;
+      let content = fs.readFileSync(instructionFile, 'utf-8');
+      content = content.replace(/^# Andy$/m, `# ${parsed.assistantName}`);
+      content = content.replace(/You are Andy/g, `You are ${parsed.assistantName}`);
+      fs.writeFileSync(instructionFile, content);
+      logger.info(
+        { file: instructionFile },
+        'Updated assistant name in instructions',
+      );
     }
 
     // Update .env

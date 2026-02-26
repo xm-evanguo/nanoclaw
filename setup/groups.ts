@@ -119,7 +119,7 @@ const sock = makeWASocket({
   auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, logger) },
   printQRInTerminal: false,
   logger,
-  browser: Browsers.macOS('Chrome'),
+  browser: Browsers.ubuntu('Chrome'),
 });
 
 const timeout = setTimeout(() => {

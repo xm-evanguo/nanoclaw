@@ -6,14 +6,14 @@ import Database from 'better-sqlite3';
 /**
  * Tests for the environment check step.
  *
- * Verifies: config detection, Docker/AC detection, DB queries.
+ * Verifies: config detection, Docker detection, DB queries.
  */
 
 describe('environment detection', () => {
   it('detects platform correctly', async () => {
     const { getPlatform } = await import('./platform.js');
     const platform = getPlatform();
-    expect(['macos', 'linux', 'unknown']).toContain(platform);
+    expect(['linux', 'unknown']).toContain(platform);
   });
 });
 
@@ -73,25 +73,39 @@ describe('registered groups DB query', () => {
 });
 
 describe('credentials detection', () => {
-  it('detects ANTHROPIC_API_KEY in env content', () => {
-    const content =
-      'SOME_KEY=value\nANTHROPIC_API_KEY=sk-ant-test123\nOTHER=foo';
+  it('detects OPENAI_API_KEY in env content', () => {
+    const content = 'SOME_KEY=value\nOPENAI_API_KEY=sk-openai-test123\nOTHER=foo';
     const hasCredentials =
-      /^(CLAUDE_CODE_OAUTH_TOKEN|ANTHROPIC_API_KEY)=/m.test(content);
+      /^(CODEX_API_KEY|OPENAI_API_KEY|OPENAI_BASE_URL|OPENAI_MODEL|OPENAI_ORG_ID)=/m.test(
+        content,
+      );
     expect(hasCredentials).toBe(true);
   });
 
-  it('detects CLAUDE_CODE_OAUTH_TOKEN in env content', () => {
-    const content = 'CLAUDE_CODE_OAUTH_TOKEN=token123';
+  it('detects OPENAI_BASE_URL in env content', () => {
+    const content = 'OPENAI_BASE_URL=https://api.openai.com/v1';
     const hasCredentials =
-      /^(CLAUDE_CODE_OAUTH_TOKEN|ANTHROPIC_API_KEY)=/m.test(content);
+      /^(CODEX_API_KEY|OPENAI_API_KEY|OPENAI_BASE_URL|OPENAI_MODEL|OPENAI_ORG_ID)=/m.test(
+        content,
+      );
+    expect(hasCredentials).toBe(true);
+  });
+
+  it('detects CODEX_API_KEY in env content', () => {
+    const content = 'SOME_KEY=value\nCODEX_API_KEY=sk-openai-test123\nOTHER=foo';
+    const hasCredentials =
+      /^(CODEX_API_KEY|OPENAI_API_KEY|OPENAI_BASE_URL|OPENAI_MODEL|OPENAI_ORG_ID)=/m.test(
+        content,
+      );
     expect(hasCredentials).toBe(true);
   });
 
   it('returns false when no credentials', () => {
     const content = 'ASSISTANT_NAME="Andy"\nOTHER=foo';
     const hasCredentials =
-      /^(CLAUDE_CODE_OAUTH_TOKEN|ANTHROPIC_API_KEY)=/m.test(content);
+      /^(CODEX_API_KEY|OPENAI_API_KEY|OPENAI_BASE_URL|OPENAI_MODEL|OPENAI_ORG_ID)=/m.test(
+        content,
+      );
     expect(hasCredentials).toBe(false);
   });
 });

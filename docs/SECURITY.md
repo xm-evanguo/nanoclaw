@@ -2,122 +2,66 @@
 
 ## Trust Model
 
-| Entity | Trust Level | Rationale |
-|--------|-------------|-----------|
-| Main group | Trusted | Private self-chat, admin control |
-| Non-main groups | Untrusted | Other users may be malicious |
-| Container agents | Sandboxed | Isolated execution environment |
-| WhatsApp messages | User input | Potential prompt injection |
+- Main group: trusted administrative channel
+- Non-main groups: untrusted input surface
+- Host process: trusted policy enforcement point
+- Container agent: sandboxed executor
 
-## Security Boundaries
+## Primary Boundary: Docker Isolation
 
-### 1. Container Isolation (Primary Boundary)
+Agents run in Docker containers with explicit bind mounts. This is the core security boundary.
 
-Agents execute in containers (lightweight Linux VMs), providing:
-- **Process isolation** - Container processes cannot affect the host
-- **Filesystem isolation** - Only explicitly mounted directories are visible
-- **Non-root execution** - Runs as unprivileged `node` user (uid 1000)
-- **Ephemeral containers** - Fresh environment per invocation (`--rm`)
+Controls:
 
-This is the primary security boundary. Rather than relying on application-level permission checks, the attack surface is limited by what's mounted.
+- Non-root container user
+- Explicit mount list per invocation
+- Per-group IPC namespace
+- Read-only project mount where applicable
 
-### 2. Mount Security
+## Mount Security
 
-**External Allowlist** - Mount permissions stored at `~/.config/nanoclaw/mount-allowlist.json`, which is:
-- Outside project root
-- Never mounted into containers
-- Cannot be modified by agents
+Additional mounts are validated against an external allowlist at:
 
-**Default Blocked Patterns:**
-```
-.ssh, .gnupg, .aws, .azure, .gcloud, .kube, .docker,
-credentials, .env, .netrc, .npmrc, id_rsa, id_ed25519,
-private_key, .secret
-```
+- `~/.config/nanoclaw/mount-allowlist.json`
 
-**Protections:**
-- Symlink resolution before validation (prevents traversal attacks)
-- Container path validation (rejects `..` and absolute paths)
-- `nonMainReadOnly` option forces read-only for non-main groups
+This allowlist is outside the project and never mounted into containers.
 
-**Read-Only Project Root:**
+Validation includes:
 
-The main group's project root is mounted read-only. Writable paths the agent needs (group folder, IPC, `.claude/`) are mounted separately. This prevents the agent from modifying host application code (`src/`, `dist/`, `package.json`, etc.) which would bypass the sandbox entirely on next restart.
+- blocked pattern checks
+- symlink resolution
+- container path sanitization
+- non-main read-only enforcement when configured
 
-### 3. Session Isolation
+## Session and Data Isolation
 
-Each group has isolated Claude sessions at `data/sessions/{group}/.claude/`:
-- Groups cannot see other groups' conversation history
-- Session data includes full message history and file contents read
-- Prevents cross-group information disclosure
+Per-group runtime/session data:
 
-### 4. IPC Authorization
+- `data/sessions/<group>/.codex`
 
-Messages and task operations are verified against group identity:
+Groups cannot access each other's session directories through default mounts.
 
-| Operation | Main Group | Non-Main Group |
-|-----------|------------|----------------|
-| Send message to own chat | ✓ | ✓ |
-| Send message to other chats | ✓ | ✗ |
-| Schedule task for self | ✓ | ✓ |
-| Schedule task for others | ✓ | ✗ |
-| View all tasks | ✓ | Own only |
-| Manage other groups | ✓ | ✗ |
+## IPC Authorization
 
-### 5. Credential Handling
+Host validates IPC operations against group privileges:
 
-**Mounted Credentials:**
-- Claude auth tokens (filtered from `.env`, read-only)
+- main can operate across groups
+- non-main can only operate on own group scope
 
-**NOT Mounted:**
-- WhatsApp session (`store/auth/`) - host only
-- Mount allowlist - external, never mounted
-- Any credentials matching blocked patterns
+This applies to message send, task management, and registration operations.
 
-**Credential Filtering:**
-Only these environment variables are exposed to containers:
-```typescript
-const allowedVars = ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'];
-```
+## Credential Exposure Policy
 
-> **Note:** Anthropic credentials are mounted so that Claude Code can authenticate when the agent runs. However, this means the agent itself can discover these credentials via Bash or file operations. Ideally, Claude Code would authenticate without exposing credentials to the agent's execution environment, but I couldn't figure this out. **PRs welcome** if you have ideas for credential isolation.
+Only these keys are passed to container runtime:
 
-## Privilege Comparison
+- `CODEX_API_KEY`
+- `OPENAI_API_KEY`
+- `OPENAI_BASE_URL`
+- `OPENAI_MODEL`
+- `OPENAI_ORG_ID`
 
-| Capability | Main Group | Non-Main Group |
-|------------|------------|----------------|
-| Project root access | `/workspace/project` (ro) | None |
-| Group folder | `/workspace/group` (rw) | `/workspace/group` (rw) |
-| Global memory | Implicit via project | `/workspace/global` (ro) |
-| Additional mounts | Configurable | Read-only unless allowed |
-| Network access | Unrestricted | Unrestricted |
-| MCP tools | All | All |
+Other `.env` variables are not forwarded to agent runtime.
 
-## Security Architecture Diagram
+## Residual Risk
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        UNTRUSTED ZONE                             │
-│  WhatsApp Messages (potentially malicious)                        │
-└────────────────────────────────┬─────────────────────────────────┘
-                                 │
-                                 ▼ Trigger check, input escaping
-┌──────────────────────────────────────────────────────────────────┐
-│                     HOST PROCESS (TRUSTED)                        │
-│  • Message routing                                                │
-│  • IPC authorization                                              │
-│  • Mount validation (external allowlist)                          │
-│  • Container lifecycle                                            │
-│  • Credential filtering                                           │
-└────────────────────────────────┬─────────────────────────────────┘
-                                 │
-                                 ▼ Explicit mounts only
-┌──────────────────────────────────────────────────────────────────┐
-│                CONTAINER (ISOLATED/SANDBOXED)                     │
-│  • Agent execution                                                │
-│  • Bash commands (sandboxed)                                      │
-│  • File operations (limited to mounts)                            │
-│  • Network access (unrestricted)                                  │
-│  • Cannot modify security config                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
+Agents can still read credentials that are intentionally forwarded for runtime auth. Treat any mounted or forwarded secret as visible to in-container tools.

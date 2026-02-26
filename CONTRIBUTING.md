@@ -1,23 +1,27 @@
-# Contributing
+# Contributing to NanoClaw
 
-## Source Code Changes
+NanoClaw baseline is intentionally minimal and Linux+Docker-only.
 
-**Accepted:** Bug fixes, security fixes, simplifications, reducing code.
+## What We Accept in Baseline
 
-**Not accepted:** Features, capabilities, compatibility, enhancements. These should be skills.
+- Security fixes
+- Bug fixes
+- Clear reliability/performance improvements
+- Docs that match actual runtime behavior
 
-## Skills
+## Skills Contributions
 
-A [skill](https://code.claude.com/docs/en/skills) is a markdown file in `.claude/skills/` that teaches Claude Code how to transform a NanoClaw installation.
+If you want to add optional capabilities, contribute skills instead of expanding baseline runtime scope.
 
-A PR that contributes a skill should not modify any source files.
+- Preferred skill location: `.codex/skills/`
+- Keep skills self-contained and auditable
+- Avoid re-introducing unsupported baseline targets (macOS runtime, Apple Container, Anthropic-specific auth/runtime)
 
-Your skill should contain the **instructions** Claude follows to add the feature—not pre-built code. See `/add-telegram` for a good example.
+## Development
 
-### Why?
+```bash
+npm run build
+npm test
+```
 
-Every user should have clean and minimal code that does exactly what they need. Skills let users selectively add features to their fork without inheriting code for features they don't want.
-
-### Testing
-
-Test your skill by running it on a fresh clone before submitting.
+Include tests for behavior changes and keep changes focused.

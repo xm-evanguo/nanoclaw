@@ -14,9 +14,7 @@ import {
   getPlatform,
   getNodePath,
   getServiceManager,
-  hasSystemd,
   isRoot,
-  isWSL,
 } from './platform.js';
 import { emitStatus } from './status.js';
 
@@ -51,9 +49,7 @@ export async function run(_args: string[]): Promise<void> {
 
   fs.mkdirSync(path.join(projectRoot, 'logs'), { recursive: true });
 
-  if (platform === 'macos') {
-    setupLaunchd(projectRoot, nodePath, homeDir);
-  } else if (platform === 'linux') {
+  if (platform === 'linux') {
     setupLinux(projectRoot, nodePath, homeDir);
   } else {
     emitStatus('SETUP_SERVICE', {
@@ -66,82 +62,6 @@ export async function run(_args: string[]): Promise<void> {
     });
     process.exit(1);
   }
-}
-
-function setupLaunchd(
-  projectRoot: string,
-  nodePath: string,
-  homeDir: string,
-): void {
-  const plistPath = path.join(
-    homeDir,
-    'Library',
-    'LaunchAgents',
-    'com.nanoclaw.plist',
-  );
-  fs.mkdirSync(path.dirname(plistPath), { recursive: true });
-
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.nanoclaw</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${nodePath}</string>
-        <string>${projectRoot}/dist/index.js</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>${projectRoot}</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:${homeDir}/.local/bin</string>
-        <key>HOME</key>
-        <string>${homeDir}</string>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>${projectRoot}/logs/nanoclaw.log</string>
-    <key>StandardErrorPath</key>
-    <string>${projectRoot}/logs/nanoclaw.error.log</string>
-</dict>
-</plist>`;
-
-  fs.writeFileSync(plistPath, plist);
-  logger.info({ plistPath }, 'Wrote launchd plist');
-
-  try {
-    execSync(`launchctl load ${JSON.stringify(plistPath)}`, {
-      stdio: 'ignore',
-    });
-    logger.info('launchctl load succeeded');
-  } catch {
-    logger.warn('launchctl load failed (may already be loaded)');
-  }
-
-  // Verify
-  let serviceLoaded = false;
-  try {
-    const output = execSync('launchctl list', { encoding: 'utf-8' });
-    serviceLoaded = output.includes('com.nanoclaw');
-  } catch {
-    // launchctl list failed
-  }
-
-  emitStatus('SETUP_SERVICE', {
-    SERVICE_TYPE: 'launchd',
-    NODE_PATH: nodePath,
-    PROJECT_PATH: projectRoot,
-    PLIST_PATH: plistPath,
-    SERVICE_LOADED: serviceLoaded,
-    STATUS: 'success',
-    LOG: 'logs/setup.log',
-  });
 }
 
 function setupLinux(
@@ -181,7 +101,7 @@ function killOrphanedProcesses(projectRoot: string): void {
  * daemon (user@UID.service) keeps the old group list from login time.
  * Docker works in the terminal but not in the service context.
  *
- * Only relevant on Linux with user-level systemd (not root, not macOS, not WSL nohup).
+ * Only relevant on Linux with user-level systemd (not root, not nohup fallback).
  */
 function checkDockerGroupStale(): boolean {
   try {

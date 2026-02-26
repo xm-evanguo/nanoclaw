@@ -40,11 +40,6 @@ vi.mock('fs', async () => {
   };
 });
 
-// Mock child_process (used for osascript notification)
-vi.mock('child_process', () => ({
-  exec: vi.fn(),
-}));
-
 // Build a fake WASocket that's an EventEmitter with the methods we need
 function createFakeSocket() {
   const ev = new EventEmitter();
@@ -74,7 +69,7 @@ let fakeSocket: ReturnType<typeof createFakeSocket>;
 vi.mock('@whiskeysockets/baileys', () => {
   return {
     default: vi.fn(() => fakeSocket),
-    Browsers: { macOS: vi.fn(() => ['macOS', 'Chrome', '']) },
+    Browsers: { ubuntu: vi.fn(() => ['Ubuntu', 'Chrome', '']) },
     DisconnectReason: {
       loggedOut: 401,
       badSession: 500,

@@ -54,6 +54,9 @@ interface VolumeMount {
   readonly: boolean;
 }
 
+const RUNTIME_STATE_DIR = '.codex';
+const LEGACY_RUNTIME_STATE_DIR = '.claude';
+
 function buildVolumeMounts(
   group: RegisteredGroup,
   isMain: boolean,
@@ -64,7 +67,7 @@ function buildVolumeMounts(
 
   if (isMain) {
     // Main gets the project root read-only. Writable paths the agent needs
-    // (group folder, IPC, .claude/) are mounted separately below.
+    // (group folder, IPC, runtime state dir) are mounted separately below.
     // Read-only prevents the agent from modifying host application code
     // (src/, dist/, package.json, etc.) which would bypass the sandbox
     // entirely on next restart.
@@ -100,42 +103,19 @@ function buildVolumeMounts(
     }
   }
 
-  // Per-group Claude sessions directory (isolated from other groups)
-  // Each group gets their own .claude/ to prevent cross-group session access
-  const groupSessionsDir = path.join(
-    DATA_DIR,
-    'sessions',
-    group.folder,
-    '.claude',
-  );
-  fs.mkdirSync(groupSessionsDir, { recursive: true });
-  const settingsFile = path.join(groupSessionsDir, 'settings.json');
-  if (!fs.existsSync(settingsFile)) {
-    fs.writeFileSync(
-      settingsFile,
-      JSON.stringify(
-        {
-          env: {
-            // Enable agent swarms (subagent orchestration)
-            // https://code.claude.com/docs/en/agent-teams#orchestrate-teams-of-claude-code-sessions
-            CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-            // Load CLAUDE.md from additional mounted directories
-            // https://code.claude.com/docs/en/memory#load-memory-from-additional-directories
-            CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD: '1',
-            // Enable Claude's memory feature (persists user preferences between sessions)
-            // https://code.claude.com/docs/en/memory#manage-auto-memory
-            CLAUDE_CODE_DISABLE_AUTO_MEMORY: '0',
-          },
-        },
-        null,
-        2,
-      ) + '\n',
-    );
+  // Per-group runtime state directory (isolated from other groups).
+  // Prefer .codex and migrate from legacy .claude if needed.
+  const groupSessionRoot = path.join(DATA_DIR, 'sessions', group.folder);
+  const groupRuntimeDir = path.join(groupSessionRoot, RUNTIME_STATE_DIR);
+  const legacyRuntimeDir = path.join(groupSessionRoot, LEGACY_RUNTIME_STATE_DIR);
+  if (!fs.existsSync(groupRuntimeDir) && fs.existsSync(legacyRuntimeDir)) {
+    fs.cpSync(legacyRuntimeDir, groupRuntimeDir, { recursive: true });
   }
+  fs.mkdirSync(groupRuntimeDir, { recursive: true });
 
-  // Sync skills from container/skills/ into each group's .claude/skills/
+  // Sync skills from container/skills/ into each group's runtime state dir.
   const skillsSrc = path.join(process.cwd(), 'container', 'skills');
-  const skillsDst = path.join(groupSessionsDir, 'skills');
+  const skillsDst = path.join(groupRuntimeDir, 'skills');
   if (fs.existsSync(skillsSrc)) {
     for (const skillDir of fs.readdirSync(skillsSrc)) {
       const srcDir = path.join(skillsSrc, skillDir);
@@ -145,8 +125,8 @@ function buildVolumeMounts(
     }
   }
   mounts.push({
-    hostPath: groupSessionsDir,
-    containerPath: '/home/node/.claude',
+    hostPath: groupRuntimeDir,
+    containerPath: '/home/node/.codex',
     readonly: false,
   });
 
@@ -204,7 +184,14 @@ function buildVolumeMounts(
  * Secrets are never written to disk or mounted as files.
  */
 function readSecrets(): Record<string, string> {
-  return readEnvFile(['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+  return readEnvFile([
+    'CODEX_API_KEY',
+    'CODEX_MODEL',
+    'OPENAI_API_KEY',
+    'OPENAI_BASE_URL',
+    'OPENAI_MODEL',
+    'OPENAI_ORG_ID',
+  ]);
 }
 
 function buildContainerArgs(
