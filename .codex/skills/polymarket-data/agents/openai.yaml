@@ -1,0 +1,4 @@
+interface:
+  display_name: "Polymarket Data"
+  short_description: "Fetch read-only Polymarket prediction-market data and implied odds"
+  default_prompt: "Use $polymarket-data to fetch Polymarket event odds or prediction-market context for this topic."

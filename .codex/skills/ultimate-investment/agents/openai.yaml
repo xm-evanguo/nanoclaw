@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ultimate Investment"
+  short_description: "Portfolio-aware investing, idea discovery, and event-risk context"
+  default_prompt: "Use $ultimate-investment to analyze my portfolio, rank new opportunities, and use companion sources like `finance-page`, `$trading-analysis`, `$polymarket-data`, and `$etf-portfolio-backtester` when they are available. Treat `/home/evan/second-brain` as the canonical trusted-note root, review relevant Deep Van and Rhino investment insight notes when they matter, and never use local CSV files or sqlite files as a substitute for live portfolio data."
